@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorkingHours</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">W</div>
+      <div class="sidebar-title">WorkingHours</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" data-view="timer" onclick="switchView('timer',this)">
+        <span class="nav-icon">⏱</span>计时器
+      </div>
+      <div class="nav-item" data-view="entries" onclick="switchView('entries',this)">
+        <span class="nav-icon">📋</span>时间记录
+      </div>
+      <div class="nav-item" data-view="calendar" onclick="switchView('calendar',this);renderCalendar()">
+        <span class="nav-icon">📅</span>日历
+      </div>
+      <div class="nav-item" data-view="reports" onclick="switchView('reports',this)">
+        <span class="nav-icon">📊</span>报表
+      </div>
+      <div class="nav-item" data-view="tasks" onclick="switchView('tasks',this)">
+        <span class="nav-icon">📁</span>项目
+      </div>
+      <div class="nav-item" data-view="focus" onclick="switchView('focus',this)">
+        <span class="nav-icon">🎯</span>专注
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="theme-toggle" onclick="toggleTheme()">
+        <span class="nav-icon">🌓</span>切换主题
+      </button>
+      <div class="backup-btns">
+        <button onclick="exportBackup()"><span class="nav-icon">💾</span>备份数据</button>
+        <button onclick="document.getElementById('restoreFile').click()"><span class="nav-icon">📂</span>恢复备份</button>
+        <button onclick="openWebdavModal()"><span class="nav-icon">☁️</span>坚果云同步</button>
+        <input type="file" id="restoreFile" accept=".json" style="display:none" onchange="importBackup(this)">
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- Main -->
+  <main class="main">
+    <header class="toolbar">
+      <div class="toolbar-left">
+        <button class="hamburger-btn" onclick="toggleSidebar()" aria-label="菜单">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <span class="view-title" id="viewTitle">计时器</span>
+        <div class="date-navigator" id="dateNav" style="display:none">
+          <button class="date-nav-btn" onclick="navDate(-1)">◀</button>
+          <span class="date-display" id="dateDisplay"></span>
+          <button class="date-nav-btn" onclick="navDate(1)">▶</button>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <span id="currentTime" style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text-muted)"></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- Timer View -->
+      <div class="view-panel active" id="panel-timer">
+        <div class="timer-layout">
+          <div class="timer-panel">
+            <div class="timer-hero" id="timerHero">
+              <div class="timer-label" id="timerLabel">今日工时</div>
+              <div class="timer-clock" id="timerClock">00:00:00</div>
+              <div class="timer-earnings" id="timerEarnings"></div>
+              <div class="timer-project-row" id="projectSelect" onclick="toggleProjectDropdown()">
+                <div class="timer-project-dot" id="taskDot" style="background:var(--text-muted)"></div>
+                <span id="selectedProject">选择项目...</span>
+                <span style="margin-left:4px">▾</span>
+                <div class="timer-project-dropdown" id="projectDropdown" onclick="event.stopPropagation()"></div>
+              </div>
+              <div class="timer-actions">
+                <button class="btn btn-primary" id="btnStart" onclick="startTimer()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                  开始计时
+                </button>
+                <button class="btn btn-secondary" id="btnPause" style="display:none" onclick="pauseTimer()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  暂停
+                </button>
+                <button class="btn btn-danger" id="btnStop" style="display:none" onclick="stopTimer()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                  停止
+                </button>
+              </div>
+            </div>
+            <div class="today-stats" id="todayStats">
+              <div class="stat-mini"><div class="stat-mini-label">今日时长</div><div class="stat-mini-value" id="statTodayTime">0h</div><div class="stat-mini-sub">含当前计时</div></div>
+              <div class="stat-mini"><div class="stat-mini-label">今日记录</div><div class="stat-mini-value" id="statTodayEntries">0</div><div class="stat-mini-sub">条时间记录</div></div>
+              <div class="stat-mini"><div class="stat-mini-label">今日项目</div><div class="stat-mini-value" id="statTodayEarnings">0</div><div class="stat-mini-sub">活跃项目数</div></div>
+            </div>
+          </div>
+          <div class="quick-summary">
+            <div class="summary-card">
+              <h4>今日记录</h4>
+              <div id="todayEntries" class="entry-list"><div class="empty-state"><div class="empty-state-icon">📝</div><div class="empty-state-text">暂无记录</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entries View -->
+      <div class="view-panel" id="panel-entries">
+        <div class="entries-layout">
+          <div class="group-tabs" id="entryGroupTabs">
+            <button class="group-tab active" onclick="setGrouping('day',this)">按天</button>
+            <button class="group-tab" onclick="setGrouping('month',this)">按月</button>
+            <button class="group-tab" onclick="setGrouping('year',this)">按年</button>
+          </div>
+          <div id="entriesGroups"></div>
+        </div>
+      </div>
+
+      <!-- Calendar View -->
+      <div class="view-panel" id="panel-calendar">
+        <div class="calendar-layout">
+          <div class="calendar-nav" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <button class="btn btn-secondary btn-sm" onclick="navCalendarMonth(-1)">◀ 上月</button>
+            <span id="calendarMonthLabel" style="font-size:15px;font-weight:600"></span>
+            <button class="btn btn-secondary btn-sm" onclick="navCalendarMonth(1)">下月 ▶</button>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+      </div>
+
+      <!-- Reports View -->
+      <div class="view-panel" id="panel-reports">
+        <div class="reports-layout">
+          <div class="reports-nav" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <button class="btn btn-secondary btn-sm" onclick="navReportMonth(-1)">◀ 上月</button>
+            <span id="reportMonthLabel" style="font-size:15px;font-weight:600"></span>
+            <button class="btn btn-secondary btn-sm" onclick="navReportMonth(1)">下月 ▶</button>
+          </div>
+          <div class="kpi-cards" id="kpiCards">
+            <div class="kpi-card"><div class="kpi-label">本月总时长</div><div class="kpi-value" id="kpiMonthHours">0h</div><div class="kpi-sub" id="kpiMonthSub">2026年7月</div></div>
+            <div class="kpi-card"><div class="kpi-label">日均时长</div><div class="kpi-value" id="kpiAvgHours">0h</div><div class="kpi-sub">按有记录天数计算</div></div>
+            <div class="kpi-card"><div class="kpi-label">活跃项目</div><div class="kpi-value" id="kpiProjects">0</div><div class="kpi-sub">本月有记录的项目</div></div>
+            <div class="kpi-card"><div class="kpi-label">本月项目完成</div><div class="kpi-value" id="kpiMonthEarnings">0</div><div class="kpi-sub">本月标记完成的项目</div></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">📈 最近7天趋势</div>
+            <div class="chart-canvas-wrap"><canvas id="trendChart"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">📊 本月项目分布</div>
+            <div class="project-distribution" id="projectDistribution"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tasks View -->
+      <div class="view-panel" id="panel-tasks">
+        <div class="tasks-layout">
+          <div class="tasks-header">
+            <h2 class="tasks-header-title">项目管理</h2>
+            <div id="tasksTabs"></div>
+            <button class="btn btn-primary" onclick="openProjectModal()">+ 新建项目</button>
+          </div>
+          <div id="tasksGrid"></div>
+        </div>
+      </div>
+
+      <!-- Focus View -->
+      <div class="view-panel" id="panel-focus">
+        <div class="focus-layout">
+          <div class="focus-modes" id="focusModes">
+            <button class="focus-mode-btn active" data-mode="work" onclick="setFocusMode('work',this)">专注 25min</button>
+            <button class="focus-mode-btn" data-mode="short" onclick="setFocusMode('short',this)">短休息 5min</button>
+            <button class="focus-mode-btn" data-mode="long" onclick="setFocusMode('long',this)">长休息 15min</button>
+            <button class="focus-mode-btn" data-mode="custom" onclick="setFocusMode('custom',this)">自定义</button>
+          </div>
+          <div class="focus-custom-row" id="focusCustomRow" style="display:none">
+            <input class="focus-custom-input" id="focusCustomMin" type="number" min="1" max="120" value="25" onchange="applyCustomFocus()">
+            <span class="focus-custom-label">分钟</span>
+          </div>
+          <!-- Ringtone settings -->
+          <div class="ringtone-section">
+            <div class="ringtone-header" id="ringtoneHeader" onclick="this.classList.toggle('open');document.getElementById('ringtoneBody').classList.toggle('open')">
+              <span class="ringtone-arrow">▶</span> 铃声设置
+            </div>
+            <div class="ringtone-body" id="ringtoneBody">
+              <div class="ringtone-row">
+                <span class="ringtone-row-label">专注结束</span>
+                <select class="ringtone-select" id="ringtoneWork" onchange="onRingtoneChange('work')">
+                  <option value="chime">🔔 和弦铃音</option>
+                  <option value="bell">🛎 清脆铃声</option>
+                  <option value="melody">🎵 短旋律</option>
+                  <option value="ping">📳 电子提示音</option>
+                  <option value="custom">📂 自定义...</option>
+                </select>
+                <button class="ringtone-test-btn" onclick="testRingtone('work')">▶ 试听</button>
+              </div>
+              <div class="ringtone-row">
+                <span class="ringtone-row-label">短休息结束</span>
+                <select class="ringtone-select" id="ringtoneShort" onchange="onRingtoneChange('short')">
+                  <option value="chime">🔔 和弦铃音</option>
+                  <option value="bell" selected>🛎 清脆铃声</option>
+                  <option value="melody">🎵 短旋律</option>
+                  <option value="ping">📳 电子提示音</option>
+                  <option value="custom">📂 自定义...</option>
+                </select>
+                <button class="ringtone-test-btn" onclick="testRingtone('short')">▶ 试听</button>
+              </div>
+              <div class="ringtone-row">
+                <span class="ringtone-row-label">长休息结束</span>
+                <select class="ringtone-select" id="ringtoneLong" onchange="onRingtoneChange('long')">
+                  <option value="chime">🔔 和弦铃音</option>
+                  <option value="bell">🛎 清脆铃声</option>
+                  <option value="melody" selected>🎵 短旋律</option>
+                  <option value="ping">📳 电子提示音</option>
+                  <option value="custom">📂 自定义...</option>
+                </select>
+                <button class="ringtone-test-btn" onclick="testRingtone('long')">▶ 试听</button>
+              </div>
+              <div class="ringtone-row">
+                <span class="ringtone-row-label">自定义结束</span>
+                <select class="ringtone-select" id="ringtoneCustom" onchange="onRingtoneChange('custom')">
+                  <option value="chime">🔔 和弦铃音</option>
+                  <option value="bell">🛎 清脆铃声</option>
+                  <option value="melody" selected>🎵 短旋律</option>
+                  <option value="ping">📳 电子提示音</option>
+                  <option value="custom">📂 自定义...</option>
+                </select>
+                <button class="ringtone-test-btn" onclick="testRingtone('custom')">▶ 试听</button>
+              </div>
+              <div class="ringtone-row" id="ringtoneCustomFileRow" style="display:none">
+                <span class="ringtone-row-label">自定义文件</span>
+                <label class="ringtone-upload-label" for="ringtoneCustomFile">📁 选择文件</label>
+                <input type="file" id="ringtoneCustomFile" accept="audio/*" style="display:none" onchange="onCustomFileSelected()">
+                <span class="ringtone-custom-name" id="ringtoneCustomName" title=""></span>
+              </div>
+            </div>
+          </div>
+          <div class="focus-ring-wrap">
+            <svg width="220" height="220" viewBox="0 0 220 220">
+              <circle class="focus-ring-bg" cx="110" cy="110" r="100"/>
+              <circle class="focus-ring-progress" id="focusRing" cx="110" cy="110" r="100"
+                stroke-dasharray="628.32" stroke-dashoffset="0"/>
+            </svg>
+            <div class="focus-timer-text" id="focusTimer">25:00</div>
+          </div>
+          <div class="focus-actions">
+            <button class="btn btn-primary" id="focusStartBtn" onclick="toggleFocus()" style="padding:12px 36px;font-size:15px">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              开始专注
+            </button>
+            <button class="btn btn-secondary" onclick="resetFocus()" style="padding:12px 24px;font-size:15px">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+              重置
+            </button>
+          </div>
+          <div class="focus-stats">
+            <div class="focus-stat"><div class="focus-stat-value" id="focusSessions">0</div><div class="focus-stat-label">今日专注</div></div>
+            <div class="focus-stat"><div class="focus-stat-value" id="focusTotalTime">0m</div><div class="focus-stat-label">总专注时长</div></div>
+            <div class="focus-stat"><div class="focus-stat-value" id="focusStreak">0</div><div class="focus-stat-label">连续天数</div></div>
+          </div>
+          <div class="focus-history">
+            <div class="focus-history-title" style="cursor:pointer" onclick="toggleFocusHistory()">
+              <span class="collapse-arrow" id="arrow_focusHistory">▶</span> 📋 历史记录 <span style="font-size:11px;font-weight:400;color:var(--text-muted)">(共 <span id="focusLogCount">0</span> 条 · 今日 <span id="focusTodayCount">0</span> 条)</span>
+            </div>
+            <div id="focusHistoryBody" style="display:none">
+              <div style="display:flex;align-items:center;gap:8px;margin:8px 0 4px">
+                <button class="btn btn-secondary btn-sm" onclick="navFocusHistory(-1)" style="padding:4px 8px;font-size:12px">◀</button>
+                <span id="focusHistoryDateLabel" style="font-size:13px;font-weight:500;color:var(--text-secondary)"></span>
+                <button class="btn btn-secondary btn-sm" onclick="navFocusHistory(1)" style="padding:4px 8px;font-size:12px">▶</button>
+              </div>
+              <div class="focus-history-list" id="focusHistoryList">
+                <div class="focus-history-empty">暂无专注记录</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Project Modal -->
+<div class="modal-overlay hidden" id="projectModal">
+  <div class="modal">
+    <h3 id="modalTitle">新建项目</h3>
+    <input type="hidden" id="modalEditId">
+    <div class="form-group">
+      <label class="form-label">项目名称</label>
+      <input class="form-input" id="modalName" placeholder="例如：前端开发">
+    </div>
+    <div class="form-group">
+      <label class="form-label">预估完成时长（小时）</label>
+      <input class="form-input" id="modalEstimatedDuration" type="number" placeholder="120" value="120">
+    </div>
+    <div class="form-group">
+      <label class="form-label">颜色标识</label>
+      <div class="color-picker" id="colorPicker">
+        <div class="color-option selected" style="background:#f0985c" data-color="#f0985c"></div>
+        <div class="color-option" style="background:#6ba4d8" data-color="#6ba4d8"></div>
+        <div class="color-option" style="background:#5cb878" data-color="#5cb878"></div>
+        <div class="color-option" style="background:#a78bfa" data-color="#a78bfa"></div>
+        <div class="color-option" style="background:#e0556a" data-color="#e0556a"></div>
+        <div class="color-option" style="background:#5cc9b8" data-color="#5cc9b8"></div>
+        <div class="color-option" style="background:#e8a850" data-color="#e8a850"></div>
+        <div class="color-option" style="background:#f5a3c7" data-color="#f5a3c7"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" id="modalDeleteBtn" style="display:none;margin-right:auto" onclick="deleteProjectFromModal()">删除项目</button>
+      <button class="btn btn-secondary" onclick="closeProjectModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveProject()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Time's Up Alert overlay -->
+<div class="timesup-overlay hidden" id="timesupOverlay">
+  <div class="timesup-card">
+    <div class="timesup-icon">⏰</div>
+    <div class="timesup-title" id="timesupTitle">时间到！</div>
+    <div class="timesup-subtitle" id="timesupSubtitle">专注 25 分钟已结束</div>
+    <button class="timesup-dismiss-btn" onclick="dismissRingtone()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      关闭铃声
+    </button>
+  </div>
+</div>
+
+<!-- WebDAV Settings Modal -->
+<div class="modal-overlay hidden" id="webdavModal">
+  <div class="modal webdav-modal">
+    <h3>☁️ 坚果云 WebDAV 同步</h3>
+    <div class="form-group">
+      <label class="form-label">WebDAV 地址</label>
+      <input class="form-input" id="webdavUrl" placeholder="https://dav.jianguoyun.com/dav/workinghours/">
+    </div>
+    <div class="form-group">
+      <label class="form-label">坚果云账号</label>
+      <input class="form-input" id="webdavUser" placeholder="your-email@example.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">应用密码 <span style="font-weight:400;font-size:11px">（非登录密码）</span></label>
+      <input class="form-input" id="webdavPass" type="password" placeholder="坚果云安全中心生成的应用密码">
+    </div>
+    <div class="webdav-hint">💡 如何获取：坚果云 → 账户信息 → 安全选项 → 添加应用密码</div>
+    <div class="form-group" style="display:flex;align-items:center;gap:8px;margin-top:4px">
+      <input type="checkbox" id="webdavSaveCreds" checked style="accent-color:var(--accent)">
+      <label for="webdavSaveCreds" style="font-size:12px;color:var(--text-secondary);cursor:pointer">记住凭据（仅存本地浏览器）</label>
+    </div>
+    <div class="webdav-status" id="webdavStatus"></div>
+    <div class="modal-actions webdav-actions">
+      <button class="btn btn-secondary btn-sm" onclick="testWebdav()">🔗 测试连接</button>
+      <button class="btn btn-primary btn-sm" onclick="webdavUpload()">☁️ 上传到云端</button>
+      <button class="btn btn-secondary btn-sm" onclick="webdavDownload()">⬇ 从云端恢复</button>
+      <button class="btn btn-secondary btn-sm" onclick="closeWebdavModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- JS: order matters — data first, then modules, then app init -->
+<script src="js/data.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/navigation.js"></script>
+<script src="js/timer.js"></script>
+<script src="js/entries.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/tasks.js"></script>
+<script src="js/focus.js"></script>
+<script src="js/backup.js"></script>
+<script src="js/webdav.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
